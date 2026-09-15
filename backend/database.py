@@ -37,6 +37,149 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+    ensure_vault_schema()
+    ensure_calendar_schema()
+    ensure_notes_schema()
+    ensure_checklist_schema()
+
+
+def ensure_checklist_schema():
+    """Create the checklist tables if missing. No-op on the migrated DB."""
+    conn = get_connection()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS checklists (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                title       TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                created_at  TEXT NOT NULL,
+                updated_at  TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS checklist_items (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                checklist_id INTEGER NOT NULL,
+                title        TEXT NOT NULL,
+                description  TEXT NOT NULL DEFAULT '',
+                position     INTEGER NOT NULL,
+                completed    INTEGER NOT NULL DEFAULT 0,
+                created_at   TEXT NOT NULL,
+                updated_at   TEXT NOT NULL,
+                FOREIGN KEY (checklist_id) REFERENCES checklists(id)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_checklist_items_checklist_id ON checklist_items (checklist_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_checklist_items_position ON checklist_items (position)")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def ensure_notes_schema():
+    """Create the notes table if it is missing. No-op on the migrated DB."""
+    conn = get_connection()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS notes (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                title       TEXT NOT NULL,
+                content     TEXT NOT NULL,
+                image_data  TEXT,
+                created_at  TEXT NOT NULL,
+                modified_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def ensure_calendar_schema():
+    """Create the calendar events table if it is missing.
+
+    Times are local wall-clock ISO strings. Safe to call repeatedly; a
+    database migrated from the previous build already has this table with all
+    columns, so this is a no-op there.
+    """
+    conn = get_connection()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS events (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                title          TEXT NOT NULL,
+                description    TEXT NOT NULL DEFAULT '',
+                starts_at      TEXT NOT NULL,
+                ends_at        TEXT,
+                all_day        INTEGER NOT NULL DEFAULT 0,
+                remind_minutes INTEGER,
+                notified_at    TEXT,
+                snoozed_until  TEXT,
+                repeat_rule    TEXT,
+                repeat_until   TEXT,
+                notified_for   TEXT,
+                created_at     TEXT NOT NULL,
+                updated_at     TEXT NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_events_starts_at ON events (starts_at)")
+
+        # Older databases predate some columns; add any that are missing.
+        existing = {row["name"] for row in conn.execute("PRAGMA table_info(events)")}
+        for col in ("snoozed_until", "repeat_rule", "repeat_until", "notified_for"):
+            if col not in existing:
+                conn.execute("ALTER TABLE events ADD COLUMN %s TEXT" % col)
+
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def ensure_vault_schema():
+    """Create the password-manager tables if they are missing.
+
+    The vault holds one row (id = 1) describing how the master key is
+    derived; credentials store title in plaintext and every secret column as
+    Fernet ciphertext (NULL when empty). Safe to call repeatedly - it only
+    creates what is absent, so a database migrated from the previous build is
+    left exactly as it is.
+    """
+    conn = get_connection()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS vault (
+                id         INTEGER PRIMARY KEY CHECK (id = 1),
+                salt       BLOB NOT NULL,
+                verifier   BLOB NOT NULL,
+                iterations INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS credentials (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                title      TEXT NOT NULL,
+                username   BLOB,
+                secret     BLOB NOT NULL,
+                url        BLOB,
+                notes      BLOB,
+                fields     BLOB,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_credentials_title ON credentials (title)")
+
+        # A database created before custom fields existed won't have the
+        # `fields` column; add it so both old and new data work here.
+        existing = {row["name"] for row in conn.execute("PRAGMA table_info(credentials)")}
+        if "fields" not in existing:
+            conn.execute("ALTER TABLE credentials ADD COLUMN fields BLOB")
+
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def add_todo(title: str):

@@ -21,6 +21,7 @@ installed an alternative backend), you can with:
     PYWEBVIEW_GUI=cef python main.py
 """
 
+import json
 import os
 import platform
 import subprocess
@@ -92,14 +93,29 @@ def main():
 
     api = Api()
 
-    webview.create_window(
-        title="PyWebView + SQLite Todo",
+    window = webview.create_window(
+        title="pan-alisaga",
         url=INDEX_FILE,
         js_api=api,
         width=900,
         height=650,
         min_size=(500, 400),
     )
+
+    # Background reminder poller: pushes due calendar reminders into the page,
+    # where the bridge turns them into calendar.reminderFired handlers.
+    from backend.scheduler import ReminderScheduler
+
+    def push_reminder(payload):
+        try:
+            window.evaluate_js(
+                "window.__paReminder && window.__paReminder(%s)" % json.dumps(payload)
+            )
+        except Exception:
+            pass  # window may be closing or not ready; the next tick retries
+
+    scheduler = ReminderScheduler(push_reminder)
+    scheduler.start()
 
     try:
         # debug=True gives you right-click "Inspect Element" dev tools while developing

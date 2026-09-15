@@ -677,3 +677,14 @@
 .toast__close:hover {
   color: var(--color-text);
 }
+
+.cal__note {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-body);
+}
+
+.month__repeat {
+  opacity: 0.7;
+}

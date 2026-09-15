@@ -1,5 +1,10 @@
 pywebview==5.3.2
 
+# Password vault: Fernet (AES-128-CBC + HMAC-SHA256) and PBKDF2 helpers.
+# Must stay compatible with data written by the previous build, which used
+# cryptography 50.x.
+cryptography>=42,<51
+
 # --- Linux only ---
 # On Linux, pywebview renders via GTK + WebKit2. The Python bindings for
 # these (PyGObject / pycairo) need certain *system* packages present first

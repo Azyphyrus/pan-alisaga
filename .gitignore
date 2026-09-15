@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# PyInstaller build of the old PyQt app (reference only, huge)
+dist/
+build/
+
+# Local databases and backups (user data / generated state)
+data/*.db
+data/*.db-journal
+data/*.db.bak
+pan-alisaga-data/
+
+# Port backups
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db

@@ -34,6 +34,15 @@ PA.views.calendar = (function () {
 
     var root = null;
     var tickTimer = null;
+    // Filled from the bridge on mount; this is only a fallback if that fails.
+    var REPEAT_RULES = [
+        ["none", "Does not repeat"],
+        ["daily", "Every day"],
+        ["weekdays", "Every weekday (Mon-Fri)"],
+        ["weekly", "Every week"],
+        ["monthly", "Every month"]
+    ];
+
     var state = {
         view: "week",
         anchor: null,      // reference date for the shown range
@@ -174,6 +183,24 @@ PA.views.calendar = (function () {
     }
 
     // --- data ----------------------------------------------------------
+    function loadRepeatRules() {
+        var calendar = PA.bridge.get("calendar");
+        if (!calendar || !calendar.repeatRules) {
+            return;
+        }
+        calendar.repeatRules(function (raw) {
+            PA.bridge.unwrap(raw, function (data) {
+                var rules = [];
+                for (var i = 0; i < data.rules.length; i++) {
+                    rules.push([data.rules[i].id, data.rules[i].label]);
+                }
+                if (rules.length) {
+                    REPEAT_RULES = rules;
+                }
+            }, function () { /* keep the fallback list */ });
+        });
+    }
+
     function load() {
         var calendar = PA.bridge.get("calendar");
         if (!calendar) {
@@ -418,6 +445,7 @@ PA.views.calendar = (function () {
             + '<span class="ev__time">' + escapeHtml(timeOf(event.starts_at))
             + (event.ends_at ? " - " + escapeHtml(timeOf(event.ends_at)) : "")
             + (hasReminder ? ' &#9200;' : "")
+            + (event.repeats ? ' &#8635;' : "")
             + '</span></div>';
     }
 
@@ -458,7 +486,9 @@ PA.views.calendar = (function () {
                     + escapeHtml((items[e].all_day ? "All day" : timeOf(items[e].starts_at)) + " - " + items[e].title) + '">'
                     + (items[e].all_day ? "" : '<span class="month__chiptime">'
                         + escapeHtml(timeOf(items[e].starts_at)) + '</span> ')
-                    + escapeHtml(items[e].title) + '</span>';
+                    + escapeHtml(items[e].title)
+                    + (items[e].repeats ? ' <span class="month__repeat">&#8635;</span>' : "")
+                    + '</span>';
             }
             if (items.length > 3) {
                 html += '<span class="month__more" data-day="' + key + '" data-more="1">+'
@@ -470,6 +500,28 @@ PA.views.calendar = (function () {
     }
 
     // --- rendering: event dialog ----------------------------------------
+    function repeatMarkup(event) {
+        var rule = event.repeat_rule || "none";
+        var until = (event.repeat_until || "").slice(0, 10);
+        var repeats = rule !== "none";
+
+        var options = "";
+        for (var i = 0; i < REPEAT_RULES.length; i++) {
+            options += '<option value="' + REPEAT_RULES[i][0] + '"'
+                + (REPEAT_RULES[i][0] === rule ? " selected" : "") + '>'
+                + REPEAT_RULES[i][1] + '</option>';
+        }
+
+        return '<label class="label" for="evRepeat">Repeats</label>'
+            + '<select class="input select" id="evRepeat">' + options + '</select>'
+            + '<div id="evUntilRow"' + (repeats ? "" : " hidden") + '>'
+            + '<label class="label" for="evUntil">Repeat until <span class="opt">optional</span></label>'
+            + '<input class="input" type="date" id="evUntil" value="' + until + '" />'
+            + '<p class="cal__note">Leave blank to repeat with no end date.'
+            + (event.id ? ' Editing changes every occurrence in the series.' : "")
+            + '</p></div>';
+    }
+
     function dialogMarkup() {
         var event = state.editing || {};
         var isNew = !event.id;
@@ -509,6 +561,7 @@ PA.views.calendar = (function () {
             + '</div></div>'
             + '<label class="label" for="evRemind">Reminder</label>'
             + '<select class="input select" id="evRemind">' + options + '</select>'
+            + repeatMarkup(event)
             + '<label class="label" for="evNote">Notes</label>'
             + '<textarea class="input textarea" id="evNote" rows="3">' + escapeHtml(event.description || "") + '</textarea>'
             + '<div class="form-actions">'
@@ -611,7 +664,10 @@ PA.views.calendar = (function () {
             starts_at: isoAt(day, start),
             ends_at: (allDay || !end) ? null : isoAt(day, end),
             all_day: allDay,
-            remind_minutes: remind
+            remind_minutes: remind,
+            repeat_rule: document.getElementById("evRepeat").value,
+            repeat_until: document.getElementById("evUntil")
+                ? document.getElementById("evUntil").value : ""
         });
     }
 
@@ -713,6 +769,18 @@ PA.views.calendar = (function () {
         submitForm();
     }
 
+    function onChange(event) {
+        if (event.target.id !== "evRepeat") {
+            return;
+        }
+        // Toggled rather than re-rendered: a re-render would discard
+        // everything else already typed into the dialog.
+        var row = document.getElementById("evUntilRow");
+        if (row) {
+            row.hidden = event.target.value === "none";
+        }
+    }
+
     function onKeydown(event) {
         if (event.key === "Escape" && state.editing) {
             state.editing = null;
@@ -742,9 +810,11 @@ PA.views.calendar = (function () {
 
         root.addEventListener("click", onClick);
         root.addEventListener("submit", onSubmit);
+        root.addEventListener("change", onChange);
         document.addEventListener("keydown", onKeydown);
         tickTimer = window.setInterval(positionNow, 60 * 1000);
 
+        loadRepeatRules();
         render();
         load();
     }
@@ -753,6 +823,7 @@ PA.views.calendar = (function () {
         if (root) {
             root.removeEventListener("click", onClick);
             root.removeEventListener("submit", onSubmit);
+            root.removeEventListener("change", onChange);
         }
         document.removeEventListener("keydown", onKeydown);
         if (tickTimer) {

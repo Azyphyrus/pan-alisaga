@@ -15,13 +15,16 @@ PA.router = (function () {
     }
 
     function renderTool(tool) {
-            if (tool.id === "notepad") {
+            // These views are wired up only when their scripts are loaded.
+            // Until a view is ported to this build, fall through to the
+            // "Not built yet" placeholder below.
+            if (tool.id === "notepad" && PA.notesApp) {
                 toolView.innerHTML = "";
                 PA.notesApp.init(toolView);
                 return;
             }
 
-            if (tool.id === "checklist") {
+            if (tool.id === "checklist" && PA.checklistApp) {
                 toolView.innerHTML = "";
                 PA.checklistApp.init(toolView);
                 return;
