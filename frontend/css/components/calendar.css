@@ -1,0 +1,679 @@
+/* Calendar - Outlook/Teams style full-height views.
+
+   Chromium 83 notes: grid gap works, flex gap does not, so rows that need
+   spacing are grids or use margins. No :is(), no inset shorthand. */
+
+/* The calendar takes over the content area instead of sitting in a card. */
+.content.is-fullbleed {
+  overflow: hidden;
+  padding: var(--space-4);
+}
+
+.content.is-fullbleed .content__inner {
+  height: 100%;
+  max-width: none;
+}
+
+.content.is-fullbleed .view {
+  height: 100%;
+}
+
+.cal {
+  --cal-hour: 48px;          /* read by calendar.js when placing blocks */
+  --cal-gutter: 60px;
+  --cal-head: 54px;
+  --cal-accent: var(--sg-blue-600);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---------- Toolbar ---------- */
+
+.cal__bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.cal__steps {
+  display: grid;
+  grid-auto-flow: column;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+}
+
+.cal__title {
+  margin-left: var(--space-4);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal__new {
+  margin-left: var(--space-2);
+}
+
+/* Segmented Day / Week / Month switcher. */
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  margin-left: auto;
+  padding: 2px;
+  background: var(--color-surface-sunken);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.seg__btn {
+  height: calc(var(--control-height-sm) - 8px);
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border: 0;
+  border-radius: calc(var(--radius-md) - 3px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.seg__btn:hover {
+  color: var(--color-text);
+}
+
+.seg__btn.is-active {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-card);
+}
+
+.cal__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.cal__error {
+  flex-shrink: 0;
+  margin-top: var(--space-2);
+}
+
+/* ---------- Time grid (day + week) ---------- */
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.grid__head,
+.grid__allday {
+  display: grid;
+  grid-template-columns: var(--cal-gutter) repeat(var(--cal-days, 7), minmax(0, 1fr));
+}
+
+/* Both strips stay pinned while the hours scroll underneath. */
+.grid__head {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  height: var(--cal-head);
+  background: var(--color-surface-raised);
+}
+
+.grid__allday {
+  position: sticky;
+  top: var(--cal-head);
+  z-index: 5;
+}
+
+.grid[data-days="1"] {
+  --cal-days: 1;
+}
+
+.grid__head {
+  border-bottom: var(--border-width) solid var(--color-divider);
+}
+
+.grid__corner {
+  border-right: var(--border-width) solid var(--color-divider);
+}
+
+.grid__corner--allday {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--space-2);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-label);
+  color: var(--color-text-muted);
+}
+
+.grid__day {
+  padding: var(--space-2) var(--space-1);
+  text-align: center;
+  border-right: var(--border-width) solid var(--color-divider);
+  cursor: pointer;
+}
+
+.grid__day:hover {
+  background: var(--color-surface-sunken);
+}
+
+.grid__dayname {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.grid__daynum {
+  display: inline-block;
+  min-width: 1.9rem;
+  margin-top: 2px;
+  padding: 2px 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-pill);
+}
+
+.grid__day.is-today .grid__dayname {
+  color: var(--cal-accent);
+}
+
+.grid__day.is-today .grid__daynum {
+  background: var(--cal-accent);
+  color: var(--sg-white);
+}
+
+/* All-day strip */
+
+.grid__allday {
+  min-height: 28px;
+  border-bottom: var(--border-width) solid var(--color-divider);
+  background: var(--color-surface);
+}
+
+.grid__alldaycell {
+  padding: 3px;
+  border-right: var(--border-width) solid var(--color-divider);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.allday-chip {
+  display: block;
+  margin-bottom: 2px;
+  padding: 2px var(--space-2);
+  background: var(--cal-accent);
+  color: var(--sg-white);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Scrolling hour area */
+
+.grid__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.grid__body {
+  display: grid;
+  grid-template-columns: var(--cal-gutter) repeat(var(--cal-days, 7), minmax(0, 1fr));
+}
+
+.grid__gutter {
+  border-right: var(--border-width) solid var(--color-divider);
+}
+
+.grid__hour {
+  position: relative;
+  height: var(--cal-hour);
+}
+
+.grid__hour span {
+  position: absolute;
+  top: -7px;
+  right: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.grid__col {
+  position: relative;
+  height: calc(var(--cal-hour) * 24);
+  border-right: var(--border-width) solid var(--color-divider);
+  cursor: pointer;
+  /* One repeating gradient draws all 24 hour lines - far cheaper than 24
+     elements per column, and it scales with --cal-hour automatically. */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--color-divider),
+    var(--color-divider) 1px,
+    transparent 1px,
+    transparent var(--cal-hour)
+  );
+}
+
+/* A neutral tint, not the accent: event blocks use the accent colour, and
+   in Day view the whole grid is "today" - a blue column would swallow them. */
+.grid__col.is-today {
+  background-color: var(--color-surface-sunken);
+}
+
+/* Current time marker */
+
+.grid__now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--sg-red-700);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.grid__now::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  background: var(--sg-red-700);
+  border-radius: var(--radius-pill);
+}
+
+/* Event blocks */
+
+.ev {
+  position: absolute;
+  z-index: 2;
+  padding: 3px var(--space-2);
+  background: var(--color-info-surface);
+  color: var(--color-info-text);
+  border-left: 3px solid var(--cal-accent);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.ev:hover {
+  box-shadow: var(--shadow-card);
+  z-index: 4;
+}
+
+.ev__title {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ev__time {
+  display: block;
+  font-size: 10px;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* A short block has room for one line only. */
+.ev.is-compact {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+.ev.is-compact .ev__time {
+  display: none;
+}
+
+/* ---------- Month ---------- */
+
+.month {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.month__head {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-bottom: var(--border-width) solid var(--color-divider);
+}
+
+.month__weekday {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.month__grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.month__cell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-1);
+  border-right: var(--border-width) solid var(--color-divider);
+  border-bottom: var(--border-width) solid var(--color-divider);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.month__cell:hover {
+  background: var(--color-surface-sunken);
+}
+
+.month__cell.is-outside {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.month__cell.is-selected {
+  box-shadow: inset 0 0 0 2px var(--cal-accent);
+}
+
+.month__date {
+  flex-shrink: 0;
+  align-self: flex-start;
+  min-width: 1.6rem;
+  margin-bottom: 2px;
+  padding: 1px 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-align: center;
+  border-radius: var(--radius-pill);
+}
+
+.month__cell.is-today .month__date {
+  background: var(--cal-accent);
+  color: var(--sg-white);
+}
+
+.month__events {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.month__chip {
+  display: block;
+  margin-bottom: 2px;
+  padding: 1px var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text);
+  border-left: 3px solid var(--cal-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-info-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.month__chip.is-allday {
+  background: var(--cal-accent);
+  color: var(--sg-white);
+}
+
+.month__chiptime {
+  font-weight: var(--font-weight-medium);
+}
+
+.month__more {
+  display: block;
+  padding-left: var(--space-2);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.month__more:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+/* ---------- Event dialog ---------- */
+
+.modal {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(18, 23, 20, 0.45);
+  overflow-y: auto;
+}
+
+.modal__card {
+  width: 100%;
+  max-width: 30rem;
+  padding: var(--space-5);
+  box-shadow: var(--shadow-float);
+}
+
+.modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.modal__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.modal__close {
+  padding: 0 var(--space-1);
+  background: transparent;
+  color: var(--color-icon-muted);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  border: 0;
+  cursor: pointer;
+}
+
+.modal__close:hover {
+  color: var(--color-text);
+}
+
+/* ---------- Form pieces ---------- */
+
+.label {
+  display: block;
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.time-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.checkbox input {
+  margin: 0 var(--space-2) 0 0;
+}
+
+.select,
+.textarea {
+  height: auto;
+  min-height: var(--control-height-md);
+  padding: var(--space-2) var(--space-3);
+  font-family: inherit;
+}
+
+.textarea {
+  resize: vertical;
+  line-height: var(--line-height-body);
+}
+
+.form-actions {
+  display: grid;
+  grid-auto-flow: column;
+  justify-content: start;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.form-error {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-danger-surface);
+  color: var(--color-danger-text);
+  font-size: var(--font-size-xs);
+  border: var(--border-width) solid var(--color-danger-text);
+  border-radius: var(--radius-sm);
+}
+
+.btn--sm {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Narrow windows ---------- */
+
+@media (max-width: 900px) {
+  .cal {
+    --cal-gutter: 46px;
+  }
+
+  .cal__title {
+    margin-left: var(--space-3);
+    font-size: var(--font-size-md);
+  }
+
+  .cal__new {
+    display: none;        /* the New event button lives in the grid instead */
+  }
+
+  .seg__btn {
+    padding: 0 var(--space-3);
+  }
+}
+
+@media (max-width: 700px) {
+  .content.is-fullbleed {
+    padding: var(--space-2);
+  }
+}
+
+/* ---------- Reminder toasts ---------- */
+
+.toasts {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 50;
+  width: 21rem;
+  max-width: calc(100vw - var(--space-8));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+}
+
+.toast__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast__title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.toast__message {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: pre-line;
+}
+
+.toast__close {
+  flex-shrink: 0;
+  margin-left: var(--space-3);
+  padding: 0 var(--space-1);
+  background: transparent;
+  color: var(--color-icon-muted);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  border: 0;
+  cursor: pointer;
+}
+
+.toast__close:hover {
+  color: var(--color-text);
+}

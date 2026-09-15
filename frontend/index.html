@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <title>pan-alisaga</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="css/fonts.css">
+    <link rel="stylesheet" href="css/tokens.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components/sidebar.css">
+    <link rel="stylesheet" href="css/components/button.css">
+    <link rel="stylesheet" href="css/components/card.css">
+    <link rel="stylesheet" href="css/components/field.css">
+    <link rel="stylesheet" href="css/components/calendar.css">
+    <link rel="stylesheet" href="css/components/vault.css">
+    <link rel="stylesheet" href="css/components/notes.css">
+    <link rel="stylesheet" href="css/components/checklist.css">
+    <link rel="stylesheet" href="css/components/dialog.css">
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body>
+    <div class="app" id="app" data-nav="rail" data-nav-open="false">
+
+        <aside class="sidebar" id="sidebar" aria-label="Main">
+            <div class="sidebar__header">
+                <span class="sidebar__mark" aria-hidden="true">pa</span>
+                <span class="sidebar__brand">pan-alisaga</span>
+                <button class="icon-btn sidebar__collapse" type="button" id="sidebarCollapse"
+                        aria-label="Minimise sidebar" title="Minimise sidebar">
+                    <svg class="icon-btn__glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M14.5 7.5L10 12l4.5 4.5"/>
+                        <path d="M19 5v14"/>
+                    </svg>
+                </button>
+            </div>
+
+            <nav class="sidebar__nav" id="nav" aria-label="Tools"></nav>
+
+            <div class="sidebar__footer">
+                <div id="navFooter"></div>
+                <button class="nav-item" type="button" id="themeToggle" data-theme-toggle title="Toggle theme">
+                    <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M20 13.5A8 8 0 0 1 10.5 4a8 8 0 1 0 9.5 9.5z"/>
+                    </svg>
+                    <span class="nav-item__label" data-theme-label>Dark</span>
+                </button>
+            </div>
+        </aside>
+
+        <div class="scrim" id="scrim"></div>
+
+        <div class="shell">
+            <header class="app-bar">
+                <button class="icon-btn" type="button" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+                    <svg class="icon-btn__glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                        <path d="M4 7h16M4 12h16M4 17h16"/>
+                    </svg>
+                </button>
+                <h1 class="app-bar__title" id="viewTitle">Home</h1>
+            </header>
+
+            <main class="content">
+                <div class="content__inner">
+
+                    <section class="view" data-view="home">
+                        <div class="card">
+                            <h2 class="card__title">PyQt Hybrid App</h2>
+                            <p class="card__subtitle">Python and JavaScript talking over QWebChannel.</p>
+                            <div class="field">
+                                <label class="label" for="nameInput">Name</label>
+                                <div class="field__row">
+                                    <input id="nameInput" class="input" placeholder="Enter name" />
+                                    <button id="greetBtn" class="btn btn--primary" type="button">Greet from Python</button>
+                                </div>
+                            </div>
+                            <p id="output" class="output" hidden></p>
+                        </div>
+                    </section>
+
+                    <section class="view" data-view="tool" hidden></section>
+
+                    <section class="view" data-view="settings" hidden>
+                        <div class="card">
+                            <h2 class="card__title">Appearance</h2>
+                            <p class="card__subtitle">The switch drives tokens on the root element.</p>
+                            <div class="setting">
+                                <div class="setting__text">
+                                    <div class="setting__label">Theme</div>
+                                    <div class="setting__hint">Swaps the data-theme token set.</div>
+                                </div>
+                                <button class="btn btn--ghost" type="button" data-theme-toggle>
+                                    <span data-theme-label>Dark</span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Classic scripts in dependency order: ES module imports are blocked
+         over file:// in QtWebEngine, so there is no bundler-free import here. -->
+    <div class="toasts" id="toasts"></div>
+
+    <script src="js/focus.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/tools.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script src="js/card-menu.js"></script>
+    <script src="js/dialog.js"></script>
+    <script src="js/notes-app.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/bridge.js"></script>
+    <script src="js/toast.js"></script>
+    <script src="js/views/calendar.js"></script>
+    <script src="js/views/passwords.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/checklist-app.js"></script>
+</body>
+</html>

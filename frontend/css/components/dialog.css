@@ -1,0 +1,107 @@
+/* In-app modal confirm dialog (scripts/dialog.js): a body-level overlay that
+   replaces the native window.confirm() so destructive actions keep the app's
+   theming, typography and focus rings. */
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background: rgba(22, 26, 24, 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.dialog[hidden] {
+  display: none;
+}
+
+.dialog__box {
+  width: min(400px, 100%);
+  background: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  animation: dialog-in var(--duration-normal) var(--ease-standard);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dialog__title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-heading);
+  color: var(--color-text);
+}
+
+.dialog__message {
+  margin: 0 0 var(--space-6);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  color: var(--color-text-secondary);
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.dialog__btn {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.dialog__btn:hover {
+  background: var(--color-surface-sunken);
+}
+
+.dialog__btn:focus {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.dialog__btn--danger {
+  background: var(--color-danger-surface);
+  border-color: var(--color-danger-surface);
+  color: var(--color-danger-text);
+}
+
+.dialog__btn--danger:hover {
+  background: var(--color-danger-text);
+  border-color: var(--color-danger-text);
+  color: var(--color-surface-raised);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog__box {
+    animation: none;
+  }
+}

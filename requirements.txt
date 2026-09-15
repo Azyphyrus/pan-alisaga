@@ -1,0 +1,9 @@
+pywebview==5.3.2
+
+# --- Linux only ---
+# On Linux, pywebview renders via GTK + WebKit2. The Python bindings for
+# these (PyGObject / pycairo) need certain *system* packages present first
+# (see the "Linux setup" section of README.md), then this extra pulls in
+# the matching Python bindings. This project intentionally does NOT use
+# PyQt — GTK is the only backend needed.
+pywebview[gtk] ; sys_platform == "linux"

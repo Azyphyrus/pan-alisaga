@@ -1,0 +1,77 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-height-md);
+  padding: 0 var(--space-5);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-label);
+  white-space: nowrap;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.btn--primary {
+  background: var(--color-action);
+  color: var(--color-action-text);
+}
+
+.btn--primary:hover {
+  background: var(--color-action-hover);
+}
+
+.btn--primary:active {
+  background: var(--color-action-pressed);
+}
+
+.btn--ghost {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+.btn--ghost:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.btn--ghost[aria-pressed="true"] {
+  background: var(--color-surface-inverse);
+  color: var(--color-text-inverse);
+  border-color: var(--color-surface-inverse);
+}
+
+/* Square icon-only button, used for the nav toggle in the app bar. */
+.icon-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  margin-right: var(--space-3);
+  padding: 0;
+  background: transparent;
+  color: var(--color-icon);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.icon-btn:hover {
+  background: var(--color-surface-sunken);
+}
+
+.icon-btn__glyph {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+}

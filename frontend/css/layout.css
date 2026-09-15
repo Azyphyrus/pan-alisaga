@@ -1,0 +1,113 @@
+/* App shell, card style: the sidebar and the content pane are separate
+   outlined cards floating on the canvas, with a gutter between them.
+   Every border uses --border-width so the whole shell stays consistent. */
+
+.app {
+  /* Rail width is derived from tokens, not a literal. */
+  --rail-width: calc(var(--control-height-sm) + var(--space-3) * 2);
+  --shell-gutter: var(--space-3);
+  display: flex;
+  height: 100vh;
+  padding: var(--shell-gutter);
+  background: var(--color-canvas);
+  overflow: hidden;
+}
+
+.shell {
+  flex: 1;
+  /* min-width:0 stops long content from forcing the sidebar to shrink. */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  /* Clips the app bar and scroll area to the card's rounded corners. */
+  overflow: hidden;
+}
+
+/* ---------- App bar ---------- */
+
+.app-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: var(--control-height-lg);
+  padding: 0 var(--space-4);
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(var(--backdrop-blur));
+  border-bottom: var(--border-width) solid var(--color-divider);
+}
+
+.app-bar__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+/* Flex gap is unsupported in Chromium 83; grid gap works, so action rows
+   are grids and everything else uses margins. */
+.app-bar__actions {
+  display: grid;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-4);
+}
+
+/* ---------- Content ---------- */
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-5);
+}
+
+.content__inner {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+/* ---------- Responsive modes ----------
+   full    >= 1000px      full-width sidebar with labels
+   rail    < 1000px       icon-only rail (the 720x480 minimum lands here)
+   overlay < 700px wide or <= 420px tall   off-canvas drawer + scrim
+   JS sets data-nav on .app; these rules describe each state. */
+
+.scrim {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  background: var(--color-surface-inverse);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-normal) var(--ease-standard),
+    visibility var(--duration-normal) var(--ease-standard);
+}
+
+.app[data-nav="overlay"][data-nav-open="true"] .scrim {
+  opacity: 0.45;
+  visibility: visible;
+}
+
+/* Short windows get a tighter gutter and content rhythm. */
+@media (max-height: 540px) {
+  .app {
+    --shell-gutter: var(--space-2);
+  }
+
+  .content {
+    padding: var(--space-4);
+  }
+}
