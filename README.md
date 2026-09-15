@@ -1,4 +1,4 @@
-# PyWebView + SQLite Todo App
+# PyWebView + SQLite
 
 A minimal, complete example of building a **desktop app** with pywebview (native window) + SQLite (database) + vanilla JavaScript (frontend).
 
