@@ -7,16 +7,21 @@ PA.tasksApp = (function () {
     var filteredPlans = [];
     var currentPlanId = null;
     var currentPlanData = null;
-    var tasks = []; // All tasks for current plan
-    var expandedTasks = {}; // Track which tasks are expanded
+    var tasks = [];
+    var expandedTasks = {};
     var editingTaskId = null;
     var activeMenu = null;
 
     var container, galleryView, taskListView;
     var plansGallery, emptyState, searchInput;
-    var taskListHeader, tasksTree;
+    var tasksTree;
     var taskModal, taskModalContent, taskModalTitle, taskModalClose;
-    var taskTitleInput, taskDescInput, taskStatusSelect, taskSaveBtn, taskCancelBtn;
+    var taskTitleInput;
+    var taskDescInput;
+    var taskQuickNotesInput;
+    var taskStatusSelect;
+    var taskSaveBtn;
+    var taskCancelBtn;
 
     function formatDate(isoString) {
         if (!isoString) return "";
@@ -24,27 +29,9 @@ PA.tasksApp = (function () {
         return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     }
 
-    function escapeHtml(text) {
-        var map = {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#039;"
-        };
-        return text.replace(/[&<>"']/g, function (m) { return map[m]; });
-    }
-
     function findPlanById(planId) {
         for (var i = 0; i < plans.length; i++) {
             if (plans[i].id === planId) return plans[i];
-        }
-        return null;
-    }
-
-    function findTaskById(taskId) {
-        for (var i = 0; i < tasks.length; i++) {
-            if (tasks[i].id === taskId) return tasks[i];
         }
         return null;
     }
@@ -60,7 +47,10 @@ PA.tasksApp = (function () {
         return null;
     }
 
-    // API calls using window.pywebview.api
+    function findTaskById(taskId) {
+        return findTaskByIdRecursive(tasks, taskId);
+    }
+
     function apiCall(method, args, callback) {
         if (window.pywebview && window.pywebview.api) {
             window.pywebview.api[method](...args).then(function (result) {
@@ -74,6 +64,13 @@ PA.tasksApp = (function () {
         }
     }
 
+    function closeAllMenus() {
+        if (window.PA && PA.cardMenu) {
+            PA.cardMenu.close();
+        }
+        activeMenu = null;
+    }
+
     // ===== PLAN OPERATIONS =====
 
     function loadPlans() {
@@ -82,6 +79,7 @@ PA.tasksApp = (function () {
                 console.error("Failed to load plans:", err);
                 return;
             }
+
             plans = result || [];
             filteredPlans = plans.slice();
             renderGallery();
@@ -106,24 +104,30 @@ PA.tasksApp = (function () {
 
         var nameField = document.createElement("div");
         nameField.className = "form-group";
+
         var nameLabel = document.createElement("label");
         nameLabel.className = "form-label";
         nameLabel.textContent = "Plan Name";
+
         var nameInput = document.createElement("input");
         nameInput.className = "form-input";
-        nameInput.placeholder = "e.g., Project Alpha";
         nameInput.type = "text";
+        nameInput.placeholder = "e.g., Project Alpha";
+
         nameField.appendChild(nameLabel);
         nameField.appendChild(nameInput);
 
         var descField = document.createElement("div");
         descField.className = "form-group";
+
         var descLabel = document.createElement("label");
         descLabel.className = "form-label";
         descLabel.textContent = "Description";
+
         var descInput = document.createElement("textarea");
         descInput.className = "form-textarea";
         descInput.placeholder = "What is this plan about?";
+
         descField.appendChild(descLabel);
         descField.appendChild(descInput);
 
@@ -138,7 +142,15 @@ PA.tasksApp = (function () {
         var defaultStatuses = ["Not Started", "In Progress", "On Hold", "Completed"];
         var statusInputs = [];
 
-        defaultStatuses.forEach(function (status, index) {
+        function updateRemoveButtons() {
+            var visibleCount = statusInputs.length;
+            statusInputs.forEach(function (field) {
+                var btn = field.querySelector(".status-input__remove-btn");
+                btn.style.visibility = visibleCount <= 2 ? "hidden" : "visible";
+            });
+        }
+
+        defaultStatuses.forEach(function (status) {
             var statusField = document.createElement("div");
             statusField.className = "status-input";
 
@@ -146,7 +158,6 @@ PA.tasksApp = (function () {
             input.className = "form-input status-input__field";
             input.type = "text";
             input.value = status;
-            input.placeholder = "Status name";
 
             var removeBtn = document.createElement("button");
             removeBtn.className = "status-input__remove-btn";
@@ -156,7 +167,9 @@ PA.tasksApp = (function () {
 
             removeBtn.addEventListener("click", function () {
                 statusField.remove();
-                statusInputs = statusInputs.filter(function (s) { return s !== statusField; });
+                statusInputs = statusInputs.filter(function (item) {
+                    return item !== statusField;
+                });
                 updateRemoveButtons();
             });
 
@@ -166,18 +179,11 @@ PA.tasksApp = (function () {
             statusInputs.push(statusField);
         });
 
-        function updateRemoveButtons() {
-            var visibleCount = statusInputs.length;
-            statusInputs.forEach(function (field) {
-                var btn = field.querySelector(".status-input__remove-btn");
-                btn.style.visibility = visibleCount <= 2 ? "hidden" : "visible";
-            });
-        }
-
         var addStatusBtn = document.createElement("button");
         addStatusBtn.className = "btn btn--ghost add-status-btn";
         addStatusBtn.type = "button";
         addStatusBtn.textContent = "+ Add Status";
+
         addStatusBtn.addEventListener("click", function () {
             var statusField = document.createElement("div");
             statusField.className = "status-input";
@@ -194,7 +200,9 @@ PA.tasksApp = (function () {
 
             removeBtn.addEventListener("click", function () {
                 statusField.remove();
-                statusInputs = statusInputs.filter(function (s) { return s !== statusField; });
+                statusInputs = statusInputs.filter(function (item) {
+                    return item !== statusField;
+                });
                 updateRemoveButtons();
             });
 
@@ -213,13 +221,14 @@ PA.tasksApp = (function () {
         cancelBtn.type = "button";
         cancelBtn.textContent = "Cancel";
         cancelBtn.addEventListener("click", function () {
-            document.body.removeChild(dialog);
+            dialog.remove();
         });
 
         var saveBtn = document.createElement("button");
         saveBtn.className = "btn btn--primary";
         saveBtn.type = "button";
         saveBtn.textContent = "Create Plan";
+
         saveBtn.addEventListener("click", function () {
             var name = nameInput.value.trim();
             var desc = descInput.value.trim();
@@ -245,7 +254,7 @@ PA.tasksApp = (function () {
                     alert("Failed to create plan");
                     return;
                 }
-                document.body.removeChild(dialog);
+                dialog.remove();
                 loadPlans();
             });
         });
@@ -270,8 +279,8 @@ PA.tasksApp = (function () {
         currentPlanId = planId;
         currentPlanData = findPlanById(planId);
         expandedTasks = {};
-        if (!currentPlanData) return;
 
+        if (!currentPlanData) return;
         loadPlanTasks();
     }
 
@@ -284,24 +293,34 @@ PA.tasksApp = (function () {
 
             tasks = result || [];
 
-            // Load subtasks recursively
-            var loadSubtasksForTasks = function (taskList, callback) {
-                var loaded = 0;
-                if (taskList.length === 0) {
+            var loadSubtasksRecursively = function (taskList, callback) {
+                if (!taskList || taskList.length === 0) {
                     callback();
                     return;
                 }
 
+                var completed = 0;
+
                 taskList.forEach(function (task) {
-                    apiCall("get_task_subtasks", [task.id], function (err, subtasks) {
-                        task.subtasks = subtasks || [];
-                        loaded++;
-                        if (loaded === taskList.length) callback();
+                    apiCall("get_task_subtasks", [task.id], function (subErr, subtasks) {
+                        if (subErr) {
+                            console.error("Failed to load subtasks:", subErr);
+                            task.subtasks = [];
+                        } else {
+                            task.subtasks = subtasks || [];
+                        }
+
+                        loadSubtasksRecursively(task.subtasks, function () {
+                            completed++;
+                            if (completed === taskList.length) {
+                                callback();
+                            }
+                        });
                     });
                 });
             };
 
-            loadSubtasksForTasks(tasks, function () {
+            loadSubtasksRecursively(tasks, function () {
                 renderTaskList();
             });
         });
@@ -313,21 +332,18 @@ PA.tasksApp = (function () {
         } else {
             var q = query.toLowerCase();
             filteredPlans = [];
+
             for (var i = 0; i < plans.length; i++) {
-                if (plans[i].title.toLowerCase().indexOf(q) !== -1 ||
-                    plans[i].description.toLowerCase().indexOf(q) !== -1) {
+                var title = (plans[i].title || "").toLowerCase();
+                var desc = (plans[i].description || "").toLowerCase();
+
+                if (title.indexOf(q) !== -1 || desc.indexOf(q) !== -1) {
                     filteredPlans.push(plans[i]);
                 }
             }
         }
-        renderGallery();
-    }
 
-    function closeAllMenus() {
-        if (window.PA && PA.cardMenu) {
-            PA.cardMenu.close();
-        }
-        activeMenu = null;
+        renderGallery();
     }
 
     function renderGallery() {
@@ -360,11 +376,12 @@ PA.tasksApp = (function () {
                 menuBtn.className = "plan-card__menu-btn";
                 menuBtn.type = "button";
                 menuBtn.setAttribute("aria-label", "Plan options");
-                menuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'
-                    + '<circle cx="12" cy="5" r="2"/>'
-                    + '<circle cx="12" cy="12" r="2"/>'
-                    + '<circle cx="12" cy="19" r="2"/>'
-                    + '</svg>';
+                menuBtn.innerHTML =
+                    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+                    '<circle cx="12" cy="5" r="2"/>' +
+                    '<circle cx="12" cy="12" r="2"/>' +
+                    '<circle cx="12" cy="19" r="2"/>' +
+                    "</svg>";
 
                 cardHeader.appendChild(titleEl);
                 cardHeader.appendChild(menuBtn);
@@ -375,10 +392,11 @@ PA.tasksApp = (function () {
 
                 var meta = document.createElement("div");
                 meta.className = "plan-card__meta";
-                meta.innerHTML = '<div class="plan-card__meta-item">'
-                    + '<span>Created:</span>'
-                    + '<span>' + formatDate(plan.created_at) + '</span>'
-                    + '</div>';
+                meta.innerHTML =
+                    '<div class="plan-card__meta-item">' +
+                    '<span>Created:</span>' +
+                    '<span>' + formatDate(plan.created_at) + '</span>' +
+                    "</div>";
 
                 card.appendChild(cardHeader);
                 card.appendChild(description);
@@ -394,6 +412,7 @@ PA.tasksApp = (function () {
 
                     menuButtonElement.addEventListener("click", function (e) {
                         e.stopPropagation();
+
                         PA.cardMenu.open(menuButtonElement, [
                             {
                                 label: "Edit",
@@ -421,8 +440,6 @@ PA.tasksApp = (function () {
         }
     }
 
-    // ===== TASK OPERATIONS =====
-
     function renderTaskList() {
         currentView = "task-list";
         galleryView.hidden = true;
@@ -430,13 +447,11 @@ PA.tasksApp = (function () {
 
         if (!currentPlanData) return;
 
-        // Update header
         var headerTitle = taskListView.querySelector(".task-list-header__title");
         var headerDesc = taskListView.querySelector(".task-list-header__description");
-        headerTitle.textContent = currentPlanData.title;
-        headerDesc.textContent = currentPlanData.description;
+        headerTitle.textContent = currentPlanData.title || "(Untitled)";
+        headerDesc.textContent = currentPlanData.description || "";
 
-        // Render task tree
         renderTaskTree();
     }
 
@@ -445,48 +460,57 @@ PA.tasksApp = (function () {
 
         if (tasks.length === 0) {
             tasksTree.classList.add("empty");
-            tasksTree.innerHTML = '<p>No tasks yet. Create one to get started!</p>';
+            tasksTree.innerHTML = "<p>No tasks yet. Create one to get started!</p>";
             return;
         }
 
         tasksTree.classList.remove("empty");
 
         tasks.forEach(function (task) {
-            var taskEl = createTaskElement(task, 0);
-            tasksTree.appendChild(taskEl);
+            var taskNode = createTaskElement(task, 0);
+            tasksTree.appendChild(taskNode);
         });
     }
 
     function createTaskElement(task, depth) {
+        var node = document.createElement("div");
+        node.className = "task-node";
+
+        if (depth > 0) {
+            node.classList.add("task-node--nested");
+        }
+
+        node.setAttribute("data-task-id", task.id);
+
         var item = document.createElement("div");
         item.className = "task-item";
-        if (depth > 0) item.classList.add("task-item--nested");
-        item.setAttribute("data-task-id", task.id);
-        item.style.marginLeft = depth > 0 ? (depth * 24) + "px" : "0";
 
         var hasSubtasks = task.subtasks && task.subtasks.length > 0;
 
-        // Expand/collapse button
         var expandBtn = document.createElement("button");
         expandBtn.className = "task-item__expand-btn";
-        if (!hasSubtasks) expandBtn.classList.add("no-subtasks");
         expandBtn.type = "button";
-        expandBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-            + '<path d="M9 6l6 6-6 6"/>'
-            + '</svg>';
+        expandBtn.setAttribute("aria-label", hasSubtasks ? "Expand or collapse subtasks" : "No subtasks");
 
-        if (hasSubtasks) {
-            var isExpanded = expandedTasks[task.id];
-            if (isExpanded) expandBtn.classList.add("expanded");
+        expandBtn.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<path d="M9 6l6 6-6 6"/>' +
+            "</svg>";
 
-            expandBtn.addEventListener("click", function (e) {
-                e.stopPropagation();
+        if (!hasSubtasks) {
+            expandBtn.classList.add("no-subtasks");
+        } else {
+            if (expandedTasks[task.id]) {
+                expandBtn.classList.add("expanded");
+            }
+
+            expandBtn.addEventListener("click", function (event) {
+                event.stopPropagation();
                 expandedTasks[task.id] = !expandedTasks[task.id];
                 renderTaskTree();
             });
         }
 
-        // Content
         var content = document.createElement("div");
         content.className = "task-item__content";
 
@@ -494,48 +518,49 @@ PA.tasksApp = (function () {
         titleEl.className = "task-item__title";
         titleEl.textContent = task.title || "(Untitled)";
 
-        var descEl = document.createElement("div");
-        descEl.className = "task-item__description";
-        descEl.textContent = task.description || "No description";
-
         content.appendChild(titleEl);
-        content.appendChild(descEl);
 
-        // Status badge
+        if (task.description) {
+            var descEl = document.createElement("div");
+            descEl.className = "task-item__description";
+            descEl.textContent = task.description;
+            content.appendChild(descEl);
+        }
+
         var statusBadge = document.createElement("span");
         statusBadge.className = "task-item__status";
         statusBadge.textContent = task.status || "Not Started";
 
-        // Menu button
         var menuBtn = document.createElement("button");
         menuBtn.className = "task-item__menu-btn";
         menuBtn.type = "button";
         menuBtn.setAttribute("aria-label", "Task options");
-        menuBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'
-            + '<circle cx="12" cy="5" r="2"/>'
-            + '<circle cx="12" cy="12" r="2"/>'
-            + '<circle cx="12" cy="19" r="2"/>'
-            + '</svg>';
+        menuBtn.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+            '<circle cx="12" cy="5" r="2"/>' +
+            '<circle cx="12" cy="12" r="2"/>' +
+            '<circle cx="12" cy="19" r="2"/>' +
+            "</svg>";
 
         item.appendChild(expandBtn);
         item.appendChild(content);
         item.appendChild(statusBadge);
         item.appendChild(menuBtn);
 
-        // Click to open detail modal
-        item.addEventListener("click", function (e) {
-            if (e.target && e.target.closest && e.target.closest(".task-item__menu-btn")) {
+        item.addEventListener("click", function (event) {
+            if (event.target && event.target.closest && event.target.closest(".task-item__menu-btn")) {
                 return;
             }
-            if (e.target && e.target.closest && e.target.closest(".task-item__expand-btn")) {
+            if (event.target && event.target.closest && event.target.closest(".task-item__expand-btn")) {
                 return;
             }
+
             openTaskModal(task.id);
         });
 
-        // Menu
-        menuBtn.addEventListener("click", function (e) {
-            e.stopPropagation();
+        menuBtn.addEventListener("click", function (event) {
+            event.stopPropagation();
+
             PA.cardMenu.open(menuBtn, [
                 {
                     label: "Edit",
@@ -561,20 +586,21 @@ PA.tasksApp = (function () {
             ]);
         });
 
-        // Subtasks container
+        node.appendChild(item);
+
         if (hasSubtasks && expandedTasks[task.id]) {
             var subtasksContainer = document.createElement("div");
             subtasksContainer.className = "task-item__subtasks";
 
             task.subtasks.forEach(function (subtask) {
-                var subtaskEl = createTaskElement(subtask, depth + 1);
-                subtasksContainer.appendChild(subtaskEl);
+                var subtaskNode = createTaskElement(subtask, depth + 1);
+                subtasksContainer.appendChild(subtaskNode);
             });
 
-            item.appendChild(subtasksContainer);
+            node.appendChild(subtasksContainer);
         }
 
-        return item;
+        return node;
     }
 
     function createSubtask(parentTaskId) {
@@ -583,6 +609,7 @@ PA.tasksApp = (function () {
 
     function showCreateTaskDialog(parentTaskId) {
         closeAllMenus();
+
         var dialog = document.createElement("div");
         dialog.className = "task-modal";
 
@@ -595,24 +622,30 @@ PA.tasksApp = (function () {
 
         var titleField = document.createElement("div");
         titleField.className = "form-group";
+
         var titleLabel = document.createElement("label");
         titleLabel.className = "form-label";
         titleLabel.textContent = "Task Title";
+
         var titleInput = document.createElement("input");
         titleInput.className = "form-input";
-        titleInput.placeholder = "Task name";
         titleInput.type = "text";
+        titleInput.placeholder = "Task name";
+
         titleField.appendChild(titleLabel);
         titleField.appendChild(titleInput);
 
         var descField = document.createElement("div");
         descField.className = "form-group";
+
         var descLabel = document.createElement("label");
         descLabel.className = "form-label";
         descLabel.textContent = "Description";
+
         var descInput = document.createElement("textarea");
         descInput.className = "form-textarea";
         descInput.placeholder = "Brief description";
+
         descField.appendChild(descLabel);
         descField.appendChild(descInput);
 
@@ -624,13 +657,14 @@ PA.tasksApp = (function () {
         cancelBtn.type = "button";
         cancelBtn.textContent = "Cancel";
         cancelBtn.addEventListener("click", function () {
-            document.body.removeChild(dialog);
+            dialog.remove();
         });
 
         var saveBtn = document.createElement("button");
         saveBtn.className = "btn btn--primary";
         saveBtn.type = "button";
         saveBtn.textContent = "Create";
+
         saveBtn.addEventListener("click", function () {
             var taskTitle = titleInput.value.trim();
             var taskDesc = descInput.value.trim();
@@ -645,7 +679,8 @@ PA.tasksApp = (function () {
                     alert("Failed to create task");
                     return;
                 }
-                document.body.removeChild(dialog);
+
+                dialog.remove();
                 loadPlanTasks();
             });
         });
@@ -665,21 +700,22 @@ PA.tasksApp = (function () {
 
     function openTaskModal(taskId) {
         editingTaskId = taskId;
+
         var task = findTaskById(taskId);
-        if (!task) task = findTaskByIdRecursive(tasks, taskId);
         if (!task) return;
 
         taskTitleInput.value = task.title || "";
         taskDescInput.value = task.description || "";
+        taskQuickNotesInput.value = task.quick_notes || "";
         taskStatusSelect.innerHTML = "";
 
         if (currentPlanData && currentPlanData.statuses) {
             currentPlanData.statuses.forEach(function (status) {
-                var opt = document.createElement("option");
-                opt.value = status;
-                opt.textContent = status;
-                if (status === task.status) opt.selected = true;
-                taskStatusSelect.appendChild(opt);
+                var option = document.createElement("option");
+                option.value = status;
+                option.textContent = status;
+                if (status === task.status) option.selected = true;
+                taskStatusSelect.appendChild(option);
             });
         }
 
@@ -696,6 +732,7 @@ PA.tasksApp = (function () {
 
         var title = taskTitleInput.value.trim();
         var desc = taskDescInput.value.trim();
+        var quickNotes = taskQuickNotesInput.value.trim();
         var status = taskStatusSelect.value;
 
         if (!title) {
@@ -703,14 +740,19 @@ PA.tasksApp = (function () {
             return;
         }
 
-        apiCall("update_task", [editingTaskId, title, desc, status], function (err) {
+    apiCall(
+        "update_task",
+        [editingTaskId, title, desc, status, quickNotes],
+        function (err) {
             if (err) {
                 alert("Failed to save task");
                 return;
             }
+
             closeTaskModal();
             loadPlanTasks();
-        });
+        }
+    );
     }
 
     function deleteTask(taskId) {
@@ -729,21 +771,186 @@ PA.tasksApp = (function () {
                 alert("Failed to delete plan");
                 return;
             }
+
             loadPlans();
         });
     }
 
     function editPlan(planId) {
-        // For now, just show a placeholder. Full edit dialog would be similar to create.
-        alert("Plan editing coming soon!");
+        closeAllMenus();
+
+        var plan = findPlanById(planId);
+        if (!plan) return;
+
+        var dialog = document.createElement("div");
+        dialog.className = "task-modal";
+
+        var content = document.createElement("div");
+        content.className = "task-modal__content";
+
+        var title = document.createElement("h2");
+        title.textContent = "Edit Plan";
+        title.className = "task-modal__title";
+
+        var nameField = document.createElement("div");
+        nameField.className = "form-group";
+
+        var nameLabel = document.createElement("label");
+        nameLabel.className = "form-label";
+        nameLabel.textContent = "Plan Name";
+
+        var nameInput = document.createElement("input");
+        nameInput.className = "form-input";
+        nameInput.type = "text";
+        nameInput.value = plan.title || "";
+
+        nameField.appendChild(nameLabel);
+        nameField.appendChild(nameInput);
+
+        var descField = document.createElement("div");
+        descField.className = "form-group";
+
+        var descLabel = document.createElement("label");
+        descLabel.className = "form-label";
+        descLabel.textContent = "Description";
+
+        var descInput = document.createElement("textarea");
+        descInput.className = "form-textarea";
+        descInput.value = plan.description || "";
+
+        descField.appendChild(descLabel);
+        descField.appendChild(descInput);
+
+        var statusesLabel = document.createElement("label");
+        statusesLabel.className = "form-label";
+        statusesLabel.textContent = "Custom Statuses";
+
+        var statusesContainer = document.createElement("div");
+        statusesContainer.className = "plan-form__statuses";
+
+        var statuses = plan.statuses || ["Not Started", "In Progress", "On Hold", "Completed"];
+
+        statuses.forEach(function (status) {
+            var statusField = document.createElement("div");
+            statusField.className = "status-input";
+
+            var statusInput = document.createElement("input");
+            statusInput.className = "form-input status-input__field";
+            statusInput.type = "text";
+            statusInput.value = status;
+
+            var removeBtn = document.createElement("button");
+            removeBtn.className = "status-input__remove-btn";
+            removeBtn.type = "button";
+            removeBtn.textContent = "−";
+
+            removeBtn.addEventListener("click", function () {
+                statusField.remove();
+            });
+
+            statusField.appendChild(statusInput);
+            statusField.appendChild(removeBtn);
+            statusesContainer.appendChild(statusField);
+        });
+
+        var addStatusBtn = document.createElement("button");
+        addStatusBtn.className = "btn btn--ghost add-status-btn";
+        addStatusBtn.type = "button";
+        addStatusBtn.textContent = "+ Add Status";
+
+        addStatusBtn.addEventListener("click", function () {
+            var statusField = document.createElement("div");
+            statusField.className = "status-input";
+
+            var statusInput = document.createElement("input");
+            statusInput.className = "form-input status-input__field";
+            statusInput.type = "text";
+            statusInput.placeholder = "Status name";
+
+            var removeBtn = document.createElement("button");
+            removeBtn.className = "status-input__remove-btn";
+            removeBtn.type = "button";
+            removeBtn.textContent = "−";
+
+            removeBtn.addEventListener("click", function () {
+                statusField.remove();
+            });
+
+            statusField.appendChild(statusInput);
+            statusField.appendChild(removeBtn);
+            statusesContainer.appendChild(statusField);
+            statusInput.focus();
+        });
+
+        var actions = document.createElement("div");
+        actions.className = "form-actions";
+
+        var cancelBtn = document.createElement("button");
+        cancelBtn.className = "btn btn--ghost";
+        cancelBtn.type = "button";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.addEventListener("click", function () {
+            dialog.remove();
+        });
+
+        var saveBtn = document.createElement("button");
+        saveBtn.className = "btn btn--primary";
+        saveBtn.type = "button";
+        saveBtn.textContent = "Save Changes";
+
+        saveBtn.addEventListener("click", function () {
+            var name = nameInput.value.trim();
+            var description = descInput.value.trim();
+
+            if (!name) {
+                alert("Plan name is required");
+                return;
+            }
+
+            var updatedStatuses = [];
+            statusesContainer.querySelectorAll(".status-input__field").forEach(function (input) {
+                var value = input.value.trim();
+                if (value) updatedStatuses.push(value);
+            });
+
+            if (updatedStatuses.length === 0) {
+                alert("At least one status is required");
+                return;
+            }
+
+            apiCall("update_plan", [planId, name, description, updatedStatuses], function (err) {
+                if (err) {
+                    console.error("Failed to update plan:", err);
+                    alert("Failed to update plan");
+                    return;
+                }
+
+                dialog.remove();
+                loadPlans();
+            });
+        });
+
+        actions.appendChild(cancelBtn);
+        actions.appendChild(saveBtn);
+
+        content.appendChild(title);
+        content.appendChild(nameField);
+        content.appendChild(descField);
+        content.appendChild(statusesLabel);
+        content.appendChild(statusesContainer);
+        content.appendChild(addStatusBtn);
+        content.appendChild(actions);
+
+        dialog.appendChild(content);
+        document.body.appendChild(dialog);
+
+        nameInput.focus();
     }
 
     function goBackToGallery() {
         searchInput.value = "";
         loadPlans();
     }
-
-    // ===== DOM SETUP =====
 
     function init() {
         var toolView = document.querySelector('[data-view="tool"]');
@@ -762,23 +969,11 @@ PA.tasksApp = (function () {
         var galleryHeader = document.createElement("div");
         galleryHeader.className = "tasks-header";
 
-        var headerLeft = document.createElement("div");
-        headerLeft.style.display = "flex";
-        headerLeft.style.alignItems = "center";
-        headerLeft.style.gap = "var(--space-3)";
+        var titleSection = document.createElement("div");
 
-        var title = document.createElement("h2");
-        title.className = "card__title";
-        title.textContent = "Task Plans";
-
-        var addBtn = document.createElement("button");
-        addBtn.className = "btn btn--primary";
-        addBtn.type = "button";
-        addBtn.textContent = "+ New Plan";
-        addBtn.addEventListener("click", createPlan);
-
-        headerLeft.appendChild(title);
-        headerLeft.appendChild(addBtn);
+        titleSection.innerHTML = ""
+            + '<h2 class="card__title">Task Plans</h2>'
+            + '<p class="card__subtitle">Productivity &middot; Create and organize tasks</p>';
 
         var headerRight = document.createElement("div");
         headerRight.className = "tasks-header__actions";
@@ -791,9 +986,16 @@ PA.tasksApp = (function () {
             searchPlans(this.value);
         });
 
-        headerRight.appendChild(searchInput);
+        var addBtn = document.createElement("button");
+        addBtn.className = "btn btn--primary";
+        addBtn.type = "button";
+        addBtn.textContent = "+ New Plan";
+        addBtn.addEventListener("click", createPlan);
 
-        galleryHeader.appendChild(headerLeft);
+        headerRight.appendChild(searchInput);
+        headerRight.appendChild(addBtn);
+
+        galleryHeader.appendChild(titleSection);
         galleryHeader.appendChild(headerRight);
 
         emptyState = document.createElement("div");
@@ -858,7 +1060,7 @@ PA.tasksApp = (function () {
         taskListView.appendChild(listHeader);
         taskListView.appendChild(tasksTree);
 
-        // ===== TASK DETAIL MODAL =====
+        // ===== TASK MODAL =====
         taskModal = document.createElement("div");
         taskModal.className = "task-modal";
         taskModal.hidden = true;
@@ -874,40 +1076,66 @@ PA.tasksApp = (function () {
         taskModalClose = document.createElement("button");
         taskModalClose.className = "task-modal__close-btn";
         taskModalClose.type = "button";
-        taskModalClose.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-            + '<line x1="18" y1="6" x2="6" y2="18"/>'
-            + '<line x1="6" y1="6" x2="18" y2="18"/>'
-            + '</svg>';
+        taskModalClose.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<line x1="18" y1="6" x2="6" y2="18"/>' +
+            '<line x1="6" y1="6" x2="18" y2="18"/>' +
+            "</svg>";
         taskModalClose.addEventListener("click", closeTaskModal);
 
         var titleGroup = document.createElement("div");
         titleGroup.className = "form-group";
+
         var titleLabel = document.createElement("label");
         titleLabel.className = "form-label";
         titleLabel.textContent = "Title";
+
         taskTitleInput = document.createElement("input");
         taskTitleInput.className = "form-input";
         taskTitleInput.type = "text";
+
         titleGroup.appendChild(titleLabel);
         titleGroup.appendChild(taskTitleInput);
 
         var descGroup = document.createElement("div");
         descGroup.className = "form-group";
+
         var descLabel = document.createElement("label");
         descLabel.className = "form-label";
         descLabel.textContent = "Description";
+
         taskDescInput = document.createElement("textarea");
         taskDescInput.className = "form-textarea";
+
         descGroup.appendChild(descLabel);
         descGroup.appendChild(taskDescInput);
 
+        var quickNotesGroup = document.createElement("div");
+        quickNotesGroup.className = "form-group task-quick-notes";
+
+        var quickNotesLabel = document.createElement("label");
+        quickNotesLabel.className = "form-label";
+        quickNotesLabel.textContent = "Quick Notes";
+
+        taskQuickNotesInput = document.createElement("textarea");
+        taskQuickNotesInput.className = "form-textarea task-quick-notes__input";
+        taskQuickNotesInput.placeholder =
+            "Add a quick note, reminder, link, or next step...";
+        taskQuickNotesInput.rows = 5;
+
+        quickNotesGroup.appendChild(quickNotesLabel);
+        quickNotesGroup.appendChild(taskQuickNotesInput);
+
         var statusGroup = document.createElement("div");
         statusGroup.className = "form-group";
+
         var statusLabel = document.createElement("label");
         statusLabel.className = "form-label";
         statusLabel.textContent = "Status";
+
         taskStatusSelect = document.createElement("select");
         taskStatusSelect.className = "form-select";
+
         statusGroup.appendChild(statusLabel);
         statusGroup.appendChild(taskStatusSelect);
 
@@ -933,25 +1161,22 @@ PA.tasksApp = (function () {
         taskModalContent.appendChild(taskModalClose);
         taskModalContent.appendChild(titleGroup);
         taskModalContent.appendChild(descGroup);
+        taskModalContent.appendChild(quickNotesGroup);
         taskModalContent.appendChild(statusGroup);
         taskModalContent.appendChild(modalActions);
 
         taskModal.appendChild(taskModalContent);
 
-        // Close modal on background click
         taskModal.addEventListener("click", function (e) {
             if (e.target === taskModal) closeTaskModal();
         });
 
-        // Append all to container
         container.appendChild(galleryView);
         container.appendChild(taskListView);
 
-        // Add to DOM
         toolView.appendChild(container);
         document.body.appendChild(taskModal);
 
-        // Load initial data
         loadPlans();
     }
 

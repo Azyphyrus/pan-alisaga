@@ -209,6 +209,7 @@ def ensure_tasks_schema():
                 parent_task_id  INTEGER,
                 title           TEXT NOT NULL,
                 description     TEXT NOT NULL DEFAULT '',
+                quick_notes     TEXT NOT NULL DEFAULT '',
                 status          TEXT NOT NULL DEFAULT 'Not Started',
                 created_at      TEXT NOT NULL,
                 updated_at      TEXT NOT NULL,
@@ -216,6 +217,16 @@ def ensure_tasks_schema():
                 FOREIGN KEY (parent_task_id) REFERENCES tasks(id)
             )
         """)
+
+        existing = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(tasks)")
+        }
+
+        if "quick_notes" not in existing:
+            conn.execute(
+                "ALTER TABLE tasks ADD COLUMN quick_notes TEXT NOT NULL DEFAULT ''"
+            )
         
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_plan_id ON tasks (plan_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_parent_task_id ON tasks (parent_task_id)")

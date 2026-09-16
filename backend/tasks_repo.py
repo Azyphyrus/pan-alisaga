@@ -119,23 +119,52 @@ class TasksRepository:
             conn.close()
 
     # ===== TASKS =====
-    
-    def create_task(self, plan_id, title, description, parent_task_id=None, status=None):
+    def create_task(
+        self,
+        plan_id,
+        title,
+        description,
+        parent_task_id=None,
+        status=None,
+        quick_notes=""
+    ):
         """Create a new task. Returns the task ID."""
         now = _now()
-        
-        # Get plan to check default status
+
         plan = self.get_plan_by_id(plan_id)
-        if status is None and plan and plan['statuses']:
-            status = plan['statuses'][0]  # First status is default
-        
+
+        if status is None and plan and plan["statuses"]:
+            status = plan["statuses"][0]
+
         conn = get_connection()
+
         try:
             cur = conn.execute(
-                "INSERT INTO tasks (plan_id, parent_task_id, title, description, status, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (plan_id, parent_task_id, title, description, status, now, now),
+                """
+                INSERT INTO tasks (
+                    plan_id,
+                    parent_task_id,
+                    title,
+                    description,
+                    quick_notes,
+                    status,
+                    created_at,
+                    updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    plan_id,
+                    parent_task_id,
+                    title,
+                    description or "",
+                    quick_notes or "",
+                    status,
+                    now,
+                    now,
+                ),
             )
+
             conn.commit()
             return cur.lastrowid
         finally:
@@ -174,23 +203,64 @@ class TasksRepository:
         finally:
             conn.close()
 
-    def update_task(self, task_id, title=None, description=None, status=None):
-        """Update task fields. Pass None to leave unchanged."""
+    def update_task(
+        self,
+        task_id,
+        title=None,
+        description=None,
+        status=None,
+        quick_notes=None
+    ):
+        """Update task fields. None means keep the current value."""
         conn = get_connection()
+
         try:
             current = self.get_task_by_id(task_id)
+
             if not current:
                 return False
-            
-            # Use current value if not provided
-            new_title = title if title is not None else current['title']
-            new_desc = description if description is not None else current['description']
-            new_status = status if status is not None else current['status']
-            
-            conn.execute(
-                "UPDATE tasks SET title = ?, description = ?, status = ?, updated_at = ? WHERE id = ?",
-                (new_title, new_desc, new_status, _now(), task_id),
+
+            new_title = (
+                title if title is not None
+                else current["title"]
             )
+
+            new_description = (
+                description if description is not None
+                else current["description"]
+            )
+
+            new_status = (
+                status if status is not None
+                else current["status"]
+            )
+
+            new_quick_notes = (
+                quick_notes if quick_notes is not None
+                else current["quick_notes"]
+            )
+
+            conn.execute(
+                """
+                UPDATE tasks
+                SET
+                    title = ?,
+                    description = ?,
+                    quick_notes = ?,
+                    status = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    new_title,
+                    new_description,
+                    new_quick_notes,
+                    new_status,
+                    _now(),
+                    task_id,
+                ),
+            )
+
             conn.commit()
             return True
         finally:

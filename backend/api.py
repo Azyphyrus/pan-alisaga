@@ -559,10 +559,27 @@ class Api:
 
     # ===== TASK ENDPOINTS =====
 
-    def create_task(self, plan_id, title, description, parent_task_id=None):
-        """Create a new task (or subtask if parent_task_id is set)."""
-        task_id = tasks_repo.create_task(plan_id, title, description, parent_task_id)
-        return {"id": task_id, "success": True}
+    def create_task(
+        self,
+        plan_id,
+        title,
+        description,
+        parent_task_id=None,
+        quick_notes=""
+    ):
+        """Create a new task or subtask."""
+        task_id = tasks_repo.create_task(
+            plan_id,
+            title,
+            description,
+            parent_task_id,
+            quick_notes=quick_notes,
+        )
+
+        return {
+            "id": task_id,
+            "success": True,
+        }
 
 
     def get_task(self, task_id):
@@ -581,10 +598,26 @@ class Api:
         return tasks_repo.get_subtasks(task_id)
 
 
-    def update_task(self, task_id, title=None, description=None, status=None):
-        """Update a task. Pass None to leave a field unchanged."""
-        tasks_repo.update_task(task_id, title, description, status)
-        return {"success": True}
+    def update_task(
+        self,
+        task_id,
+        title=None,
+        description=None,
+        status=None,
+        quick_notes=None
+    ):
+        """Update a task and its quick notes."""
+        updated = tasks_repo.update_task(
+            task_id,
+            title,
+            description,
+            status,
+            quick_notes,
+        )
+
+        return {
+            "success": bool(updated),
+        }
 
 
     def delete_task(self, task_id):
