@@ -27,13 +27,8 @@ import platform
 import subprocess
 import sys
 
-from backend.api import Api
-from backend.database import init_db
-
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
-INDEX_FILE = os.path.join(FRONTEND_DIR, "index.html")
-
-
+# IMPORTANT: Auto-install requirements BEFORE importing any backend modules
+# This prevents ModuleNotFoundError for dependencies like cryptography
 def auto_install_requirements():
     """
     Check if requirements are installed; if not, run pip install automatically.
@@ -41,6 +36,7 @@ def auto_install_requirements():
     """
     try:
         import webview
+        from cryptography.fernet import Fernet
         return True  # requirements already installed
     except ImportError:
         pass
@@ -56,6 +52,17 @@ def auto_install_requirements():
         return True
     except subprocess.CalledProcessError as e:
         sys.exit(f"ERROR: pip install failed: {e}")
+
+
+# Install requirements FIRST, before any other imports
+auto_install_requirements()
+
+# Now safe to import backend modules
+from backend.api import Api
+from backend.database import init_db
+
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
+INDEX_FILE = os.path.join(FRONTEND_DIR, "index.html")
 
 
 def resolve_gui_backend():
@@ -76,9 +83,6 @@ def resolve_gui_backend():
 
 
 def main():
-    # Auto-install requirements if not already present
-    auto_install_requirements()
-
     gui = resolve_gui_backend()
 
     try:
