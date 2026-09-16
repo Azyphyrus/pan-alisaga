@@ -11,7 +11,8 @@ PA.tasksApp = (function () {
     var expandedTasks = {};
     var editingTaskId = null;
     var activeMenu = null;
-
+    var taskStartDateInput;
+    var taskEndDateInput;
     var container, galleryView, taskListView;
     var plansGallery, emptyState, searchInput;
     var tasksTree;
@@ -27,6 +28,15 @@ PA.tasksApp = (function () {
         if (!isoString) return "";
         var date = new Date(isoString);
         return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function formatTaskDate(dateString) {
+        if (!dateString) return "";
+
+        var parts = dateString.split("-");
+        if (parts.length !== 3) return dateString;
+
+        return parts[1] + "/" + parts[2] + "/" + parts[0];
     }
 
     function findPlanById(planId) {
@@ -527,6 +537,23 @@ PA.tasksApp = (function () {
             content.appendChild(descEl);
         }
 
+        // Task date range
+        var datesEl = document.createElement("div");
+        datesEl.className = "task-item__dates";
+
+        var startDate = formatTaskDate(task.start_date);
+        var endDate = formatTaskDate(task.end_date);
+
+        if (startDate && endDate) {
+            datesEl.textContent = startDate + " – " + endDate;
+        } else if (startDate) {
+            datesEl.textContent = "From " + startDate;
+        } else if (endDate) {
+            datesEl.textContent = "Until " + endDate;
+        } else {
+            datesEl.textContent = "No dates";
+        }
+
         var statusBadge = document.createElement("span");
         statusBadge.className = "task-item__status";
         statusBadge.textContent = task.status || "Not Started";
@@ -544,6 +571,7 @@ PA.tasksApp = (function () {
 
         item.appendChild(expandBtn);
         item.appendChild(content);
+        item.appendChild(datesEl);
         item.appendChild(statusBadge);
         item.appendChild(menuBtn);
 
@@ -649,6 +677,40 @@ PA.tasksApp = (function () {
         descField.appendChild(descLabel);
         descField.appendChild(descInput);
 
+        var datesGroup = document.createElement("div");
+        datesGroup.className = "task-dates-group";
+
+        var startDateField = document.createElement("div");
+        startDateField.className = "form-group";
+
+        var startDateLabel = document.createElement("label");
+        startDateLabel.className = "form-label";
+        startDateLabel.textContent = "Start Date";
+
+        var startDateInput = document.createElement("input");
+        startDateInput.className = "form-input";
+        startDateInput.type = "date";
+
+        startDateField.appendChild(startDateLabel);
+        startDateField.appendChild(startDateInput);
+
+        var endDateField = document.createElement("div");
+        endDateField.className = "form-group";
+
+        var endDateLabel = document.createElement("label");
+        endDateLabel.className = "form-label";
+        endDateLabel.textContent = "End Date";
+
+        var endDateInput = document.createElement("input");
+        endDateInput.className = "form-input";
+        endDateInput.type = "date";
+
+        endDateField.appendChild(endDateLabel);
+        endDateField.appendChild(endDateInput);
+
+        datesGroup.appendChild(startDateField);
+        datesGroup.appendChild(endDateField);
+
         var actions = document.createElement("div");
         actions.className = "form-actions";
 
@@ -666,15 +728,32 @@ PA.tasksApp = (function () {
         saveBtn.textContent = "Create";
 
         saveBtn.addEventListener("click", function () {
-            var taskTitle = titleInput.value.trim();
-            var taskDesc = descInput.value.trim();
+        var taskTitle = titleInput.value.trim();
+        var taskDesc = descInput.value.trim();
+        var startDate = startDateInput.value || "";
+        var endDate = endDateInput.value || "";
 
             if (!taskTitle) {
                 alert("Task title is required");
                 return;
             }
+            if (startDate && endDate && endDate < startDate) {
+                alert("End date cannot be before start date");
+                return;
+            }
 
-            apiCall("create_task", [currentPlanId, taskTitle, taskDesc, parentTaskId || null], function (err) {
+        apiCall(
+            "create_task",
+            [
+                currentPlanId,
+                taskTitle,
+                taskDesc,
+                parentTaskId || null,
+                "",
+                startDate,
+                endDate
+            ],
+            function (err) {
                 if (err) {
                     alert("Failed to create task");
                     return;
@@ -691,6 +770,7 @@ PA.tasksApp = (function () {
         content.appendChild(title);
         content.appendChild(titleField);
         content.appendChild(descField);
+        content.appendChild(datesGroup);
         content.appendChild(actions);
 
         dialog.appendChild(content);
@@ -707,6 +787,8 @@ PA.tasksApp = (function () {
         taskTitleInput.value = task.title || "";
         taskDescInput.value = task.description || "";
         taskQuickNotesInput.value = task.quick_notes || "";
+        taskStartDateInput.value = task.start_date || "";
+        taskEndDateInput.value = task.end_date || "";
         taskStatusSelect.innerHTML = "";
 
         if (currentPlanData && currentPlanData.statuses) {
@@ -733,6 +815,8 @@ PA.tasksApp = (function () {
         var title = taskTitleInput.value.trim();
         var desc = taskDescInput.value.trim();
         var quickNotes = taskQuickNotesInput.value.trim();
+        var startDate = taskStartDateInput.value || "";
+        var endDate = taskEndDateInput.value || "";
         var status = taskStatusSelect.value;
 
         if (!title) {
@@ -740,9 +824,22 @@ PA.tasksApp = (function () {
             return;
         }
 
+        if (startDate && endDate && endDate < startDate) {
+            alert("End date cannot be before start date");
+            return;
+        }
+
     apiCall(
         "update_task",
-        [editingTaskId, title, desc, status, quickNotes],
+        [
+            editingTaskId,
+            title,
+            desc,
+            status,
+            quickNotes,
+            startDate,
+            endDate
+        ],
         function (err) {
             if (err) {
                 alert("Failed to save task");
@@ -1126,6 +1223,40 @@ PA.tasksApp = (function () {
         quickNotesGroup.appendChild(quickNotesLabel);
         quickNotesGroup.appendChild(taskQuickNotesInput);
 
+        var taskDatesGroup = document.createElement("div");
+        taskDatesGroup.className = "task-dates-group";
+
+        var taskStartDateGroup = document.createElement("div");
+        taskStartDateGroup.className = "form-group";
+
+        var taskStartDateLabel = document.createElement("label");
+        taskStartDateLabel.className = "form-label";
+        taskStartDateLabel.textContent = "Start Date";
+
+        taskStartDateInput = document.createElement("input");
+        taskStartDateInput.className = "form-input";
+        taskStartDateInput.type = "date";
+
+        taskStartDateGroup.appendChild(taskStartDateLabel);
+        taskStartDateGroup.appendChild(taskStartDateInput);
+
+        var taskEndDateGroup = document.createElement("div");
+        taskEndDateGroup.className = "form-group";
+
+        var taskEndDateLabel = document.createElement("label");
+        taskEndDateLabel.className = "form-label";
+        taskEndDateLabel.textContent = "End Date";
+
+        taskEndDateInput = document.createElement("input");
+        taskEndDateInput.className = "form-input";
+        taskEndDateInput.type = "date";
+
+        taskEndDateGroup.appendChild(taskEndDateLabel);
+        taskEndDateGroup.appendChild(taskEndDateInput);
+
+        taskDatesGroup.appendChild(taskStartDateGroup);
+        taskDatesGroup.appendChild(taskEndDateGroup);
+
         var statusGroup = document.createElement("div");
         statusGroup.className = "form-group";
 
@@ -1162,6 +1293,7 @@ PA.tasksApp = (function () {
         taskModalContent.appendChild(titleGroup);
         taskModalContent.appendChild(descGroup);
         taskModalContent.appendChild(quickNotesGroup);
+        taskModalContent.appendChild(taskDatesGroup);
         taskModalContent.appendChild(statusGroup);
         taskModalContent.appendChild(modalActions);
 

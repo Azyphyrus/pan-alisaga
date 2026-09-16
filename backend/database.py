@@ -210,6 +210,8 @@ def ensure_tasks_schema():
                 title           TEXT NOT NULL,
                 description     TEXT NOT NULL DEFAULT '',
                 quick_notes     TEXT NOT NULL DEFAULT '',
+                start_date      TEXT,
+                end_date        TEXT,
                 status          TEXT NOT NULL DEFAULT 'Not Started',
                 created_at      TEXT NOT NULL,
                 updated_at      TEXT NOT NULL,
@@ -226,6 +228,16 @@ def ensure_tasks_schema():
         if "quick_notes" not in existing:
             conn.execute(
                 "ALTER TABLE tasks ADD COLUMN quick_notes TEXT NOT NULL DEFAULT ''"
+            )
+
+        if "start_date" not in existing:
+            conn.execute(
+                "ALTER TABLE tasks ADD COLUMN start_date TEXT"
+            )
+
+        if "end_date" not in existing:
+            conn.execute(
+                "ALTER TABLE tasks ADD COLUMN end_date TEXT"
             )
         
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_plan_id ON tasks (plan_id)")

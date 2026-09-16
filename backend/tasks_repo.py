@@ -126,7 +126,9 @@ class TasksRepository:
         description,
         parent_task_id=None,
         status=None,
-        quick_notes=""
+        quick_notes="",
+        start_date=None,
+        end_date=None
     ):
         """Create a new task. Returns the task ID."""
         now = _now()
@@ -147,11 +149,13 @@ class TasksRepository:
                     title,
                     description,
                     quick_notes,
+                    start_date,
+                    end_date,
                     status,
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     plan_id,
@@ -159,6 +163,8 @@ class TasksRepository:
                     title,
                     description or "",
                     quick_notes or "",
+                    start_date or None,
+                    end_date or None,
                     status,
                     now,
                     now,
@@ -209,9 +215,15 @@ class TasksRepository:
         title=None,
         description=None,
         status=None,
-        quick_notes=None
+        quick_notes=None,
+        start_date=None,
+        end_date=None
     ):
-        """Update task fields. None means keep the current value."""
+        """Update task fields.
+
+        None means keep the current value.
+        An empty string clears a date.
+        """
         conn = get_connection()
 
         try:
@@ -240,6 +252,16 @@ class TasksRepository:
                 else current["quick_notes"]
             )
 
+            new_start_date = (
+                start_date if start_date is not None
+                else current["start_date"]
+            )
+
+            new_end_date = (
+                end_date if end_date is not None
+                else current["end_date"]
+            )
+
             conn.execute(
                 """
                 UPDATE tasks
@@ -247,6 +269,8 @@ class TasksRepository:
                     title = ?,
                     description = ?,
                     quick_notes = ?,
+                    start_date = ?,
+                    end_date = ?,
                     status = ?,
                     updated_at = ?
                 WHERE id = ?
@@ -255,6 +279,8 @@ class TasksRepository:
                     new_title,
                     new_description,
                     new_quick_notes,
+                    new_start_date or None,
+                    new_end_date or None,
                     new_status,
                     _now(),
                     task_id,

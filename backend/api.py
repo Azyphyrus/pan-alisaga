@@ -565,15 +565,22 @@ class Api:
         title,
         description,
         parent_task_id=None,
-        quick_notes=""
+        quick_notes="",
+        start_date=None,
+        end_date=None
     ):
         """Create a new task or subtask."""
+        if start_date and end_date and end_date < start_date:
+            raise ValueError("End date cannot be before start date.")
+
         task_id = tasks_repo.create_task(
             plan_id,
             title,
             description,
             parent_task_id,
             quick_notes=quick_notes,
+            start_date=start_date or None,
+            end_date=end_date or None,
         )
 
         return {
@@ -604,15 +611,22 @@ class Api:
         title=None,
         description=None,
         status=None,
-        quick_notes=None
+        quick_notes=None,
+        start_date=None,
+        end_date=None
     ):
-        """Update a task and its quick notes."""
+        """Update a task, including notes and dates."""
+        if start_date and end_date and end_date < start_date:
+            raise ValueError("End date cannot be before start date.")
+
         updated = tasks_repo.update_task(
             task_id,
             title,
             description,
             status,
             quick_notes,
+            start_date,
+            end_date,
         )
 
         return {
