@@ -24,6 +24,12 @@ PA.router = (function () {
                 return;
             }
 
+            if (tool.id === "task-maker" && PA.tasksApp) {
+                toolView.innerHTML = "";
+                PA.tasksApp.init();
+                return;
+            }
+
             if (tool.id === "checklist" && PA.checklistApp) {
                 toolView.innerHTML = "";
                 PA.checklistApp.init(toolView);

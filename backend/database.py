@@ -41,6 +41,7 @@ def init_db():
     ensure_calendar_schema()
     ensure_notes_schema()
     ensure_checklist_schema()
+    ensure_tasks_schema()
 
 
 def ensure_checklist_schema():
@@ -177,6 +178,48 @@ def ensure_vault_schema():
         if "fields" not in existing:
             conn.execute("ALTER TABLE credentials ADD COLUMN fields BLOB")
 
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def ensure_tasks_schema():
+    """Create the plans and tasks tables if they are missing.
+    
+    Plans have custom statuses stored as pipe-separated strings.
+    Tasks can be nested up to any depth via parent_task_id.
+    """
+    conn = get_connection()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS plans (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                title       TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                statuses    TEXT NOT NULL DEFAULT 'Not Started|In Progress|On Hold|Completed',
+                created_at  TEXT NOT NULL,
+                updated_at  TEXT NOT NULL
+            )
+        """)
+        
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS tasks (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                plan_id         INTEGER NOT NULL,
+                parent_task_id  INTEGER,
+                title           TEXT NOT NULL,
+                description     TEXT NOT NULL DEFAULT '',
+                status          TEXT NOT NULL DEFAULT 'Not Started',
+                created_at      TEXT NOT NULL,
+                updated_at      TEXT NOT NULL,
+                FOREIGN KEY (plan_id) REFERENCES plans(id),
+                FOREIGN KEY (parent_task_id) REFERENCES tasks(id)
+            )
+        """)
+        
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_plan_id ON tasks (plan_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_parent_task_id ON tasks (parent_task_id)")
+        
         conn.commit()
     finally:
         conn.close()

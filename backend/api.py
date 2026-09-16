@@ -26,6 +26,9 @@ from backend.credentials_repo import CredentialsRepository, VaultRepository
 from backend.events_repo import EventsRepository
 from backend.notes_repo import NotesRepository
 from backend.checklist_repo import ChecklistRepository
+from backend.tasks_repo import TasksRepository
+
+tasks_repo = TasksRepository()
 
 log = logging.getLogger(__name__)
 
@@ -521,3 +524,75 @@ class Api:
         except Exception as exc:  # noqa: BLE001
             log.exception("clearCompleted failed")
             return json.dumps({"success": False, "error": str(exc)})
+
+        
+    # --- tasks / task plans --------------------------------------------
+
+    def create_plan(self, title, description, statuses=None):
+        """Create a new plan. statuses is a list like ['Not Started', 'In Progress', ...]"""
+        plan_id = tasks_repo.create_plan(title, description, statuses)
+        return {"id": plan_id, "success": True}
+
+
+    def get_plan(self, plan_id):
+        """Get a plan by ID."""
+        plan = tasks_repo.get_plan_by_id(plan_id)
+        return plan or {}
+
+
+    def get_all_plans(self):
+        """Get all plans."""
+        return tasks_repo.get_all_plans()
+
+
+    def update_plan(self, plan_id, title, description, statuses=None):
+        """Update a plan's title, description, and optionally its statuses."""
+        tasks_repo.update_plan(plan_id, title, description, statuses)
+        return {"success": True}
+
+
+    def delete_plan(self, plan_id):
+        """Delete a plan and all its tasks."""
+        tasks_repo.delete_plan(plan_id)
+        return {"success": True}
+
+
+    # ===== TASK ENDPOINTS =====
+
+    def create_task(self, plan_id, title, description, parent_task_id=None):
+        """Create a new task (or subtask if parent_task_id is set)."""
+        task_id = tasks_repo.create_task(plan_id, title, description, parent_task_id)
+        return {"id": task_id, "success": True}
+
+
+    def get_task(self, task_id):
+        """Get a task by ID."""
+        task = tasks_repo.get_task_by_id(task_id)
+        return task or {}
+
+
+    def get_plan_tasks(self, plan_id):
+        """Get all top-level tasks for a plan."""
+        return tasks_repo.get_tasks_by_plan(plan_id)
+
+
+    def get_task_subtasks(self, task_id):
+        """Get all subtasks of a task."""
+        return tasks_repo.get_subtasks(task_id)
+
+
+    def update_task(self, task_id, title=None, description=None, status=None):
+        """Update a task. Pass None to leave a field unchanged."""
+        tasks_repo.update_task(task_id, title, description, status)
+        return {"success": True}
+
+
+    def delete_task(self, task_id):
+        """Delete a task and all its subtasks."""
+        tasks_repo.delete_task(task_id)
+        return {"success": True}
+
+
+    def search_tasks(self, plan_id, query):
+        """Search tasks in a plan."""
+        return tasks_repo.search_tasks(plan_id, query)
