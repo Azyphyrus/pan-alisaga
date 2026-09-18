@@ -276,3 +276,15 @@ def delete_todo(todo_id: int):
     conn.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
     conn.commit()
     conn.close()
+    
+def writable_data_path(filename):
+    """Always resolves next to the exe (not the temp extraction folder)."""
+    if getattr(sys, "frozen", False):
+        base_path = os.path.dirname(sys.executable)
+    else:
+        base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    data_dir = os.path.join(base_path, "data")
+    os.makedirs(data_dir, exist_ok=True)
+    return os.path.join(data_dir, filename)
+
+DB_PATH = writable_data_path("app.db")
