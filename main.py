@@ -123,7 +123,7 @@ def main():
 
     try:
         # debug=True gives you right-click "Inspect Element" dev tools while developing
-        webview.start(debug=True, gui=gui)
+        webview.start(debug=True, gui=gui) #on compilation webview.start(debug=False)
     except Exception as exc:
         sys.exit(
             "ERROR: pywebview couldn't start the GTK rendering backend "
