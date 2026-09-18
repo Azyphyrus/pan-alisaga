@@ -11,6 +11,7 @@ Keeping DB code in its own module (separate from api.py) means:
 
 import sqlite3
 import os
+import sys
 
 # Store the DB file inside /data so it's easy to find, back up, or .gitignore
 DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
