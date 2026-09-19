@@ -11,9 +11,16 @@ Linux notes
 -----------
 pywebview needs a web-rendering backend to draw the window. On Windows/macOS
 this is built into the OS (Edge WebView2 / WKWebView) automatically. On
-Linux this project uses the GTK + WebKit2 backend (no Qt/PyQt involved) —
-see the "Linux setup" section of README.md for the exact system packages
-to install for your distro.
+Linux this project uses the GTK + WebKit2 backend (no Qt/PyQt involved).
+
+The GTK bindings (PyGObject / pycairo) are deliberately NOT installed via
+pip here. They need to be compiled against your distro's own GTK/WebKit2
+libraries, and pip trying to build them from source is slow and brittle
+(it needs cairo-devel, gobject-introspection-devel, etc. as system -devel
+packages, and it can end up rebuilding a binding your distro already
+ships as a working prebuilt package). Instead, install them with your
+system's package manager — see the "Linux setup" section of README.md —
+and this script will detect and use them automatically.
 
 You normally don't need to touch anything below — GTK is selected
 automatically on Linux. If you ever need to override it (e.g. you've
@@ -27,12 +34,49 @@ import platform
 import subprocess
 import sys
 
+LINUX_GTK_INSTALL_HINT = """
+ERROR: the GTK/WebKit2 Python bindings ('gi' / PyGObject) aren't available.
+
+pywebview's Linux backend needs these installed as SYSTEM packages
+(pip cannot reliably build them — see requirements.txt for why):
+
+    Fedora:        sudo dnf install python3-gobject python3-cairo gtk3 webkit2gtk4.1
+    Debian/Ubuntu: sudo apt install python3-gi python3-gi-cairo gir1.2-webkit2-4.1
+    Arch:          sudo pacman -S python-gobject python-cairo gtk3 webkit2gtk
+
+Install the command above for your distro, then re-run: python main.py
+"""
+
+
+def check_linux_gtk_bindings():
+    """
+    On Linux, verify the system-provided GTK bindings ('gi', i.e. PyGObject)
+    are importable before we go any further. These must come from the
+    distro's package manager, not pip, so we fail fast with clear
+    instructions instead of letting pip attempt (and likely fail) a
+    from-source build later.
+    """
+    if platform.system() != "Linux":
+        return
+    if os.environ.get("PYWEBVIEW_GUI") and os.environ["PYWEBVIEW_GUI"] != "gtk":
+        return  # user opted into a non-GTK backend; not our concern here
+    try:
+        import gi  # noqa: F401
+    except ImportError:
+        sys.exit(LINUX_GTK_INSTALL_HINT)
+
+
 # IMPORTANT: Auto-install requirements BEFORE importing any backend modules
 # This prevents ModuleNotFoundError for dependencies like cryptography
 def auto_install_requirements():
     """
     Check if requirements are installed; if not, run pip install automatically.
     This way users can just run 'python main.py' without manual venv setup.
+
+    Note: requirements.txt intentionally excludes the GTK bindings
+    (PyGObject/pycairo) on Linux — those are checked separately by
+    check_linux_gtk_bindings() and must come from the system package
+    manager, not pip.
     """
     try:
         import webview
@@ -54,7 +98,11 @@ def auto_install_requirements():
         sys.exit(f"ERROR: pip install failed: {e}")
 
 
-# Install requirements FIRST, before any other imports
+# Check system GTK bindings first (Linux only) — fail fast with a clear
+# message rather than letting a much later, more confusing error surface.
+check_linux_gtk_bindings()
+
+# Install requirements next, before any other imports
 auto_install_requirements()
 
 # Now safe to import backend modules

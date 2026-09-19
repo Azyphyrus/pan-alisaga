@@ -6,9 +6,21 @@ pywebview==5.3.2
 cryptography>=42,<51
 
 # --- Linux only ---
-# On Linux, pywebview renders via GTK + WebKit2. The Python bindings for
-# these (PyGObject / pycairo) need certain *system* packages present first
-# (see the "Linux setup" section of README.md), then this extra pulls in
-# the matching Python bindings. This project intentionally does NOT use
-# PyQt — GTK is the only backend needed.
-pywebview[gtk] ; sys_platform == "linux"
+# NOTE: we intentionally do NOT list `pywebview[gtk]` here anymore.
+#
+# That extra pulls in PyGObject + pycairo + PyGObject-stubs via pip, and
+# pip cannot use the prebuilt PyGObject your distro already ships (see
+# README "Linux setup") whenever a dependency (PyGObject-stubs) asks for a
+# newer version than what's installed. Result: pip tries to compile
+# PyGObject/pycairo from source, which needs cairo-devel,
+# gobject-introspection-devel, etc. present as system -devel packages, and
+# fails with a meson/pkg-config error if they aren't.
+#
+# Instead, install the GTK + WebKit2 Python bindings as system packages
+# (fast, prebuilt, matches your distro's GTK/WebKit2 exactly):
+#   Fedora:        sudo dnf install python3-gobject python3-cairo gtk3 webkit2gtk4.1
+#   Debian/Ubuntu: sudo apt install python3-gi python3-gi-cairo gir1.2-webkit2-4.1
+#   Arch:          sudo pacman -S python-gobject python-cairo gtk3 webkit2gtk
+#
+# main.py checks for `import gi` before falling back to pip, so once the
+# system packages above are installed, nothing here needs to change.
