@@ -169,9 +169,23 @@ def main():
     scheduler = ReminderScheduler(push_reminder)
     scheduler.start()
 
+    # private_mode=True (pywebview's default) disables persistent browser
+    # storage. On Windows/WebView2 that still leaves window.localStorage
+    # usable for the session; on Linux/WebKitGTK it goes further and the
+    # local file:// page doesn't get a localStorage object at all (any
+    # access throws "Can't find variable: localStorage"). Explicitly turn
+    # private mode off and give WebKit a real place to persist storage.
+    storage_dir = os.path.join(os.path.expanduser("~"), ".pan-alisaga", "webview")
+    os.makedirs(storage_dir, exist_ok=True)
+
     try:
         # debug=True gives you right-click "Inspect Element" dev tools while developing
-        webview.start(debug=True, gui=gui) #on compilation webview.start(debug=False)
+        webview.start(
+            debug=True,  # on compilation: debug=False
+            gui=gui,
+            private_mode=False,
+            storage_path=storage_dir,
+        )
     except Exception as exc:
         sys.exit(
             "ERROR: pywebview couldn't start the GTK rendering backend "
